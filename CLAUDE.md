@@ -82,6 +82,26 @@ Note: Stop any logfire platform instances to avoid port 8000 conflicts.
 - Enabled per-model in AI_MODELS configuration
 - Selected tools passed to agent via `VercelAIAdapter.dispatch_request`
 
+## Frontend code structure
+
+### One component per file
+
+Non-trivial React components live in their own file. Trivial means: pure JSX, no state/effects, used in exactly one place, ~10 lines or fewer — those can be inline functions in the parent file. Everything else gets its own file.
+
+File names are kebab-case (`tool-approval-prompt.tsx`); exported component names are PascalCase (`ToolApprovalPrompt`). Place files under:
+
+- `src/components/{name}.tsx` — domain-specific compositions (`edit-message-dialog.tsx`, `tool-approval-prompt.tsx`)
+- `src/components/ai-elements/{name}.tsx` — wrappers around `@ai-sdk` UI elements (`confirmation.tsx`, `tool.tsx`)
+- `src/components/ui/{name}.tsx` — pure shadcn/ui primitives (`button.tsx`, `alert.tsx`)
+
+`src/Chat.tsx` and `src/Part.tsx` are top-level composition orchestrators; the pieces they render belong in their own files.
+
+### Vendored components are read-only
+
+`src/components/ui/` (shadcn) and `src/components/ai-elements/` (Vercel AI Elements) are vendored from upstream registries. Treat them as read-only: never modify in place. To customize behavior, wrap the primitive in a new file under `src/components/`. To upgrade, re-run `npx shadcn@latest add <name>` (or `@ai-elements/<name>`) and review the diff.
+
+A small number of pre-existing local modifications survive in these folders (e.g. the Dialog-based error display in `ai-elements/tool.tsx` from #11). Each is tagged with a `// local modification:` comment. Leave those as they are, but don't add new ones — extract a wrapper instead.
+
 ## Configuration
 
 - **TypeScript paths**: `@/*` maps to `./src/*`

@@ -7,6 +7,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  GitForkIcon,
   PencilIcon,
   RefreshCcwIcon,
   XIcon,
@@ -16,6 +17,7 @@ import { useEffect, useState } from 'react'
 import { useForkSiblings } from '@/hooks/useForkSiblings'
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning'
 import { ToolPart } from '@/components/tool-part'
+import { cn } from '@/lib/utils'
 
 interface PartProps {
   part: UIMessagePart<UIDataTypes, UITools>
@@ -33,6 +35,7 @@ interface PartProps {
   conversationId?: string
   messageIndex?: number
   onNavigateToFork?: (conversationId: string) => void
+  onForkFromMessage?: (messageId: string, partIndex: number) => void
 }
 
 export function Part({
@@ -51,7 +54,24 @@ export function Part({
   conversationId,
   messageIndex,
   onNavigateToFork,
+  onForkFromMessage,
 }: PartProps) {
+  // Fork button sits in a compact left gutter and reveals only when hovering
+  // the part. `alignClass` nudges it to line up with that part's header row
+  // (reasoning trigger / tool header / message bubble), which have different
+  // top offsets.
+  const renderForkButton = (alignClass?: string) =>
+    onForkFromMessage ? (
+      <Action
+        onClick={() => {
+          onForkFromMessage(message.id, index)
+        }}
+        label="Fork from here"
+        className={cn('shrink-0 size-5 p-0 opacity-0 group-hover/part:opacity-100 transition-opacity', alignClass)}
+      >
+        <GitForkIcon className="size-3" />
+      </Action>
+    ) : null
   const [editText, setEditText] = useState('')
 
   // Intentionally deps on [isEditing] only — we want to initialize editText
@@ -116,34 +136,49 @@ export function Part({
       )
     }
 
+    if (message.role === 'assistant') {
+      return (
+        <div className="py-4 group/part flex items-start gap-1">
+          {renderForkButton('mt-3')}
+          <div className="flex-1 min-w-0">
+            <Message from="assistant">
+              <MessageContent>
+                <Response>{part.text}</Response>
+              </MessageContent>
+            </Message>
+            {index === message.parts.length - 1 && (
+              <Actions className="mt-1">
+                <Action
+                  onClick={() => {
+                    regen(message.id)
+                  }}
+                  label="Retry"
+                >
+                  <RefreshCcwIcon className="size-3" />
+                </Action>
+                <Action
+                  onClick={() => {
+                    copy(part.text)
+                  }}
+                  label="Copy"
+                >
+                  <CopyIcon className="size-3" />
+                </Action>
+              </Actions>
+            )}
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="py-4">
-        <Message from={message.role}>
+        <Message from="user">
           <MessageContent>
             <Response>{part.text}</Response>
           </MessageContent>
         </Message>
-        {message.role === 'assistant' && index === message.parts.length - 1 && (
-          <Actions className="mt-1">
-            <Action
-              onClick={() => {
-                regen(message.id)
-              }}
-              label="Retry"
-            >
-              <RefreshCcwIcon className="size-3" />
-            </Action>
-            <Action
-              onClick={() => {
-                copy(part.text)
-              }}
-              label="Copy"
-            >
-              <CopyIcon className="size-3" />
-            </Action>
-          </Actions>
-        )}
-        {message.role === 'user' && index === message.parts.length - 1 && (
+        {index === message.parts.length - 1 && (
           <div className="flex items-center gap-2 mt-1 justify-end">
             {status !== 'submitted' && status !== 'streaming' && (
               <Actions className="opacity-0 group-hover/user-message:opacity-100 transition-opacity">
@@ -169,17 +204,30 @@ export function Part({
       </div>
     )
   } else if (part.type === 'reasoning') {
+    const isLastPart = index === message.parts.length - 1
     return (
-      <Reasoning
-        className="w-full"
-        isStreaming={status === 'streaming' && index === message.parts.length - 1 && lastMessage}
-      >
-        <ReasoningTrigger />
-        <ReasoningContent>{part.text}</ReasoningContent>
-      </Reasoning>
+      <div className="group/part flex items-start gap-1">
+        {message.role === 'assistant' && renderForkButton('mt-0.5')}
+        <div className="flex-1 min-w-0">
+          <Reasoning className="w-full" isStreaming={status === 'streaming' && isLastPart && lastMessage}>
+            <ReasoningTrigger />
+            <ReasoningContent>{part.text}</ReasoningContent>
+          </Reasoning>
+        </div>
+      </div>
     )
   } else if (part.type === 'dynamic-tool' || 'toolCallId' in part) {
-    return <ToolPart part={part} onApprovalResponse={onApprovalResponse} />
+    // Only allow forking after a tool has produced a result — truncating a
+    // message mid-tool-call (no output yet) would yield an invalid history.
+    const toolHasResult = 'state' in part && (part.state === 'output-available' || part.state === 'output-error')
+    return (
+      <div className="group/part flex items-start gap-1">
+        {message.role === 'assistant' && toolHasResult && renderForkButton('mt-3.5')}
+        <div className="flex-1 min-w-0">
+          <ToolPart part={part} onApprovalResponse={onApprovalResponse} />
+        </div>
+      </div>
+    )
   }
 }
 

@@ -80,7 +80,7 @@ const Chat = () => {
         body: () => ({ model: modelRef.current, builtinTools: enabledToolsRef.current, effort: effortRef.current }),
       }),
   )
-  const { messages, sendMessage, status, setMessages, regenerate, error, clearError, addToolApprovalResponse } =
+  const { messages, sendMessage, status, setMessages, regenerate, stop, error, clearError, addToolApprovalResponse } =
     useChat({
       transport,
       sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
@@ -291,6 +291,51 @@ const Chat = () => {
     [setConversationId],
   )
 
+  // Branch-to-continue: fork a new conversation from a specific part of an
+  // assistant message. The forked message is truncated to the parts up to and
+  // including `partIndex`, so the user can branch "in between" tool/reasoning
+  // calls. Nothing regenerates; the user types the next turn into the fork.
+  // Original is left untouched.
+  const handleForkFromAssistant = useCallback(
+    (messageId: string, partIndex: number) => {
+      if (conversationId === '/') return
+      const messageIndex = messages.findIndex((m) => m.id === messageId)
+      if (messageIndex === -1) return
+
+      const message = messages[messageIndex]
+      const truncatedMessage = { ...message, parts: message.parts.slice(0, partIndex + 1) }
+      const forkedMessages = [...messages.slice(0, messageIndex), truncatedMessage]
+
+      // If a stream is in flight, stop it before navigating. useChat streams
+      // into the shared `messages` array and the throttled save effect targets
+      // the current conversationId — without stopping, the ongoing generation
+      // would continue writing and get saved under the new fork id (corrupting
+      // the fork and truncating the original). Persist the original's current
+      // state first so it keeps everything streamed up to the fork point.
+      if (status === 'submitted' || status === 'streaming') {
+        saveMessages(conversationId, messages).catch((err: unknown) => {
+          console.error('Failed to save original messages before fork:', err)
+        })
+        void stop()
+      }
+
+      const newConversationId = `/${nanoid()}`
+
+      // Title the fork with the original conversation's first user message
+      const firstUserMessage = forkedMessages.find((m) => m.role === 'user')
+      const firstMessageText = firstUserMessage?.parts.find((p) => p.type === 'text')
+      const firstMessage = firstMessageText && 'text' in firstMessageText ? firstMessageText.text : ''
+
+      saveConversationEntry(newConversationId, firstMessage, { conversationId, messageIndex })
+      saveMessages(newConversationId, forkedMessages).catch((err: unknown) => {
+        console.error('Failed to save forked messages:', err)
+      })
+
+      setConversationId(newConversationId)
+    },
+    [messages, conversationId, setConversationId, status, stop],
+  )
+
   function regen(messageId: string) {
     regenerate({ messageId }).catch((error: unknown) => {
       console.error('Error regenerating message:', error)
@@ -339,6 +384,7 @@ const Chat = () => {
                   conversationId={conversationId}
                   messageIndex={messageIndex}
                   onNavigateToFork={handleNavigateToFork}
+                  onForkFromMessage={handleForkFromAssistant}
                 />
               ))}
             </div>

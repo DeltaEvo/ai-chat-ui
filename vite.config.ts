@@ -10,7 +10,7 @@ const BACKEND_DEV_SERVER_PORT = process.env.BACKEND_PORT ?? 38001
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss(), tsconfigPaths({ root: __dirname })],
-  base: command === 'build' ? 'https://cdn.jsdelivr.net/npm/@pydantic/ai-chat-ui/dist/' : '',
+  base: command === 'build' ? 'https://deltaevo.github.io/ai-chat-ui/' : '',
   build: {
     assetsDir: 'assets',
   },

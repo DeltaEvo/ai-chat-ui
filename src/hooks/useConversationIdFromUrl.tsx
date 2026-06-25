@@ -9,7 +9,6 @@ export function useConversationIdFromUrl(): [string, (id: string) => void] {
   useEffect(() => {
     const handlePopState = () => {
       const newId = stripBasePath(window.location.pathname)
-      console.log('popstate event detected', window.location.pathname)
       setConversationId(newId)
     }
 
@@ -27,6 +26,8 @@ export function useConversationIdFromUrl(): [string, (id: string) => void] {
     const url = new URL(window.location.toString())
     url.pathname = withBasePath(id || '/')
     window.history.pushState({}, '', url.toString())
+    // Notify other hook instances (e.g. the sidebar's active marker) to re-read the URL.
+    window.dispatchEvent(new Event('history-state-changed'))
   }
 
   return [conversationId, setConversationIdAndUrl]

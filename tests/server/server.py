@@ -40,6 +40,12 @@ def send_email(to: str, body: str) -> str:
     return f"Email sent to {to}"
 
 
+@agent.tool_plain
+def run_code(code: str, restart: bool = False) -> dict[str, object]:
+    """Run a snippet of Python code."""
+    return {"output": "hello world\n", "result": 42}
+
+
 def _has_tool_return(messages: list[ModelMessage]) -> bool:
     return any(isinstance(p, ToolReturnPart) for msg in messages for p in msg.parts)
 
@@ -94,6 +100,20 @@ async def stream_error(
     yield {0: DeltaToolCall(name="get_weather", json_args=json.dumps({"city": ""}))}
 
 
+async def stream_run_code(
+    messages: list[ModelMessage], info: AgentInfo
+) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+    if _has_tool_return(messages):
+        yield "The code ran successfully."
+        return
+    yield {
+        0: DeltaToolCall(
+            name="run_code",
+            json_args=json.dumps({"code": "print('hello world')", "restart": False}),
+        )
+    }
+
+
 def _has_tool_return_for(messages: list[ModelMessage], tool_name: str) -> bool:
     return any(
         isinstance(p, ToolReturnPart) and p.tool_name == tool_name
@@ -134,6 +154,7 @@ models: dict[str, object] = {
     "multi-tool": FunctionModel(stream_function=stream_multi_tool),
     "error": FunctionModel(stream_function=stream_error),
     "approval": FunctionModel(stream_function=stream_approval),
+    "run-code": FunctionModel(stream_function=stream_run_code),
     "anthropic": "anthropic:claude-haiku-4-5",
     "openai": "openai-responses:gpt-4.1-nano",
     "google": "google:gemini-2.0-flash",

@@ -1,8 +1,11 @@
 import { CodeBlock } from '@/components/ai-elements/code-block'
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 
 // Avoid running two Prism highlighters over very large tool payloads.
 const LARGE_TOOL_OUTPUT_LENGTH = 20_000
+
+// Memoize to avoid re-running highlighters on unchanged code.
+const CodeBlockMemo = memo(CodeBlock)
 
 function stringifyToolOutput(output: unknown): string {
   try {
@@ -20,5 +23,5 @@ export function ToolOutputCode({ output }: { output: unknown }) {
     return <pre className="max-h-96 overflow-auto p-4 font-mono text-xs whitespace-pre-wrap break-words">{code}</pre>
   }
 
-  return <CodeBlock code={code} language="json" />
+  return <CodeBlockMemo code={code} language="json" />
 }

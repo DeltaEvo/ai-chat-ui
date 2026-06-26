@@ -4,7 +4,10 @@ import { ToolOutputCode } from '@/components/tool-output-code'
 import { RunCodeInput } from '@/components/run-code-input'
 import { isRunCodeOutput, RunCodeOutput } from '@/components/run-code-output'
 import type { ChatAddToolApproveResponseFunction, DynamicToolUIPart, ToolUIPart } from 'ai'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
+
+// Memoize to avoid re-running highlighters on unchanged code.
+const ToolInputMemo = memo(ToolInput)
 
 interface ToolPartProps {
   part: ToolUIPart | DynamicToolUIPart
@@ -35,7 +38,7 @@ export function ToolPart({ part, onApprovalResponse }: ToolPartProps) {
       <ToolContent>
         {open && (
           <>
-            {isRunCode ? <RunCodeInput input={part.input} /> : <ToolInput input={part.input} />}
+            {isRunCode ? <RunCodeInput input={part.input} /> : <ToolInputMemo input={part.input} />}
             {approval && (
               <ToolApprovalPrompt approval={approval} state={part.state} onApprovalResponse={onApprovalResponse} />
             )}

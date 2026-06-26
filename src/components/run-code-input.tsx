@@ -1,6 +1,10 @@
 import { CodeBlock, CodeBlockCopyButton } from '@/components/ai-elements/code-block'
 import { Badge } from '@/components/ui/badge'
 import type { ToolPart } from '@/components/ai-elements/tool'
+import { memo } from 'react'
+
+// Memoize to avoid re-running highlighters on unchanged code.
+const CodeBlockMemo = memo(CodeBlock, (prev, next) => prev.code === next.code)
 
 interface RunCodeInputProps {
   input: ToolPart['input']
@@ -27,9 +31,9 @@ export function RunCodeInput({ input }: RunCodeInputProps) {
         )}
       </div>
       <div className="rounded-md bg-muted/50">
-        <CodeBlock code={code} language="python" showLineNumbers>
+        <CodeBlockMemo code={code} language="python" showLineNumbers>
           <CodeBlockCopyButton />
-        </CodeBlock>
+        </CodeBlockMemo>
       </div>
     </div>
   )

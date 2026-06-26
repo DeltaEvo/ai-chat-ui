@@ -1,4 +1,4 @@
-import { CodeBlock } from '@/components/ai-elements/code-block'
+import { ToolOutputCode } from '@/components/tool-output-code'
 import type { ToolPart } from '@/components/ai-elements/tool'
 
 export interface RunCodeResult {
@@ -32,7 +32,7 @@ export function RunCodeOutput({ output }: RunCodeOutputProps) {
         <div className="space-y-2">
           <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Result</h4>
           <div className="rounded-md bg-muted/50">
-            <CodeBlock code={JSON.stringify(output.result, null, 2)} language="json" />
+            <ToolOutputCode output={output.result} />
           </div>
         </div>
       )}

@@ -94,6 +94,19 @@ async def stream_multi_tool(
     }
 
 
+async def stream_repeated_tool(
+    messages: list[ModelMessage], info: AgentInfo
+) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+    if _has_tool_return(messages):
+        yield "All weather lookups completed."
+        return
+    yield {
+        0: DeltaToolCall(name="get_weather", json_args=json.dumps({"city": "London"})),
+        1: DeltaToolCall(name="get_weather", json_args=json.dumps({"city": "Paris"})),
+        2: DeltaToolCall(name="get_weather", json_args=json.dumps({"city": "Tokyo"})),
+    }
+
+
 async def stream_error(
     messages: list[ModelMessage], info: AgentInfo
 ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
@@ -163,12 +176,32 @@ async def stream_approval(
     }
 
 
+async def stream_repeated_approval(
+    messages: list[ModelMessage], info: AgentInfo
+) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+    if _has_tool_return_for(messages, "send_email"):
+        yield "Both emails have been sent successfully."
+        return
+    yield {
+        0: DeltaToolCall(
+            name="send_email",
+            json_args=json.dumps({"to": "alice@example.com", "body": "Hello Alice!"}),
+        ),
+        1: DeltaToolCall(
+            name="send_email",
+            json_args=json.dumps({"to": "bob@example.com", "body": "Hello Bob!"}),
+        ),
+    }
+
+
 models: dict[str, object] = {
     "text": FunctionModel(stream_function=stream_text),
     "tool": FunctionModel(stream_function=stream_tool),
     "multi-tool": FunctionModel(stream_function=stream_multi_tool),
+    "repeated-tool": FunctionModel(stream_function=stream_repeated_tool),
     "error": FunctionModel(stream_function=stream_error),
     "approval": FunctionModel(stream_function=stream_approval),
+    "repeated-approval": FunctionModel(stream_function=stream_repeated_approval),
     "run-code": FunctionModel(stream_function=stream_run_code),
     "large-output": FunctionModel(stream_function=stream_large_output),
     "anthropic": "anthropic:claude-haiku-4-5",
